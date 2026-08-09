@@ -21,8 +21,8 @@ SEQUENCES_DIR = PROJECT_ROOT / "sequences"
 RUNS_DIR = PROJECT_ROOT / "test_run_naturalistic"
 
 REASSURANCE_INSERT_AFTER_INDEX = 0   # after excerpt 2
-MAX_EXCERPTS = 6
-N_REPEATS = 10
+MAX_EXCERPTS = 10
+N_REPEATS = 30
 
 AGENT_TYPES = ["jtc", "nonjtc"]
 REASSURANCE_TYPES = ["calibrated", "miscalibrated"]
@@ -255,7 +255,7 @@ def generate_reassurance_message(
         "Maximum 10 words.\n"
         "Use the reasoning to infer what kind of reasoning process the person is using. Do NOT quote the reasoning.\n Respond to the process behind the reasoning."
         "Do NOT mention confidence, percentages, certainty scores, or numeric thresholds.\n"
-        "Do NOT mention Author A or Author B.\n"
+        "Do NOT mention Author A, Author B Author C, Author D or Author E.\n"
         "Do NOT introduce new evidence.\n"
         "Do NOT tell them directly what answer to choose.\n"
         "Do NOT use labels, bullet points, or meta-commentary."
@@ -304,7 +304,7 @@ def run_single_condition(condition: Condition, model_name: str) -> RunResult:
     conversation.append({
         "role": "user",
         "content": (
-            "All excerpts come from either Author A or Author B. "
+            "All excerpts come from either Author A, Author B,Author C, Author D or Author E. "
             "You will receive excerpts one at a time."
         ),
     })
@@ -409,8 +409,14 @@ def run_single_condition(condition: Condition, model_name: str) -> RunResult:
     true_norm = normalize_label(true_author)
 
     accuracy = None
-    if final_norm in {"author a", "author b"}:
-        accuracy = int(final_norm == true_norm)
+    if final_norm in {
+    "author a",
+    "author b",
+    "author c",
+    "author d",
+    "author e",
+  }:
+     accuracy = int(final_norm == true_norm) 
 
     return RunResult(
         timestamp=datetime.now().isoformat(timespec="seconds"),
@@ -476,15 +482,74 @@ def build_conditions(sequence_files: List[str]) -> List[Condition]:
 # MAIN
 # =====================================================
 
+def get_completed_runs() -> set[tuple[str, str, str, str, int]]:
+    """
+    Return keys for successfully saved runs:
+
+    (
+        model_name,
+        agent_type,
+        reassurance_type,
+        sequence_file,
+        rep,
+    )
+    """
+    completed: set[tuple[str, str, str, str, int]] = set()
+
+    if not RUNS_DIR.exists():
+        return completed
+
+    for path in RUNS_DIR.glob("*.json"):
+        try:
+            data = load_json(path)
+
+            condition = data.get("condition", {})
+            model_name = data.get("model_name")
+            agent_type = condition.get("agent_type")
+            reassurance_type = condition.get("reassurance_type")
+            sequence_file = condition.get("sequence_file")
+            rep = condition.get("rep")
+
+            if (
+                model_name
+                and agent_type
+                and reassurance_type
+                and sequence_file
+                and rep is not None
+            ):
+                completed.add(
+                    (
+                        model_name,
+                        agent_type,
+                        reassurance_type,
+                        sequence_file,
+                        int(rep),
+                    )
+                )
+
+        except (json.JSONDecodeError, OSError, TypeError, ValueError) as exc:
+            print(f"Warning: could not inspect {path.name}: {exc}")
+
+    return completed
+
 def run_all() -> None:
     ensure_dirs()
     validate_files()
 
-    sequence_files = sorted([p.name for p in SEQUENCES_DIR.glob("*.json")])
+    sequence_files = sorted(
+        [p.name for p in SEQUENCES_DIR.glob("*.json")]
+    )
     conditions = build_conditions(sequence_files)
 
-    total = len(MODELS) * len(conditions) * N_REPEATS
-    print(f"\nTOTAL RUNS = {total}\n")
+    completed = get_completed_runs()
+
+    total_expected = len(MODELS) * len(conditions) * N_REPEATS
+    total_completed = len(completed)
+    total_remaining = total_expected - total_completed
+
+    print(f"\nTOTAL EXPECTED RUNS = {total_expected}")
+    print(f"ALREADY COMPLETED = {total_completed}")
+    print(f"REMAINING = {total_remaining}\n")
 
     for model in MODELS:
         print("=" * 60)
@@ -492,25 +557,56 @@ def run_all() -> None:
         print("=" * 60)
 
         for condition in conditions:
-            for rep in range(N_REPEATS):
+            for rep in range(1, N_REPEATS + 1):
+
+                run_key = (
+                    model,
+                    condition.agent_type,
+                    condition.reassurance_type,
+                    condition.sequence_file,
+                    rep,
+                )
+
+                if run_key in completed:
+                    print(
+                        f"SKIPPING completed run: "
+                        f"{model} | {condition.name} | rep {rep}/{N_REPEATS}"
+                    )
+                    continue
+
                 print(
-                    f"{model} | {condition.name} | rep {rep + 1}/{N_REPEATS}"
+                    f"RUNNING: "
+                    f"{model} | {condition.name} | rep {rep}/{N_REPEATS}"
                 )
 
-                result = run_single_condition(
-                    condition=condition,
-                    model_name=model,
-                )
+                try:
+                    result = run_single_condition(
+                        condition=condition,
+                        model_name=model,
+                    )
 
-                result.condition["rep"] = rep + 1
-                save_run_result(result)
+                    result.condition["rep"] = rep
+                    save_run_result(result)
 
-                print(
-                    f"guess={result.final_guess} | "
-                    f"acc={result.accuracy} | "
-                    f"toc={result.toc_turn} | "
-                    f"ES={result.evidence_requests}"
-                )
+                    completed.add(run_key)
+
+                    print(
+                        f"guess={result.final_guess} | "
+                        f"acc={result.accuracy} | "
+                        f"toc={result.toc_turn} | "
+                        f"ES={result.evidence_requests}"
+                    )
+
+                except Exception as exc:
+                    print(
+                        f"\nRUN FAILED: "
+                        f"{model} | {condition.name} | rep {rep}\n"
+                        f"{type(exc).__name__}: {exc}\n"
+                    )
+
+                    # Stop immediately for quota/API problems.
+                    # Previously saved runs remain available for resuming.
+                    raise
 
 if __name__ == "__main__":
     run_all()

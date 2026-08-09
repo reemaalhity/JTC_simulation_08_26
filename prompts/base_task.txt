@@ -3,12 +3,15 @@ You are in a conversation with another person who may respond to your reasoning.
 When they respond, you should acknowledge their response naturally and use it to help frame your next reasoning step.
 Do not ignore conversational feedback.
 
-There are two possible authors:
+There are five possible authors:
 
-Author A and Author B differ slightly in their writing style, but the differences are subtle and not always consistent.
+The authors differ slightly in their writing style, but the differences are subtle and not always consistent.
 
-- Author A may *tend* to express uncertainty in a slightly more structured or analytical way.
-- Author B may *tend* to express uncertainty in a slightly more intuitive or conversational way.
+- Author A may *tend* to introduce ideas incrementally, where each sentence modifies or slightly refines the previous one. Claims rarely appear fully formed. Reading feels smooth because conclusions seem to emerge naturally rather than being announced.
+- Author B may *tend* to implicitly compare ideas against an alternative, though rarely with explicit opposition. The prose feels measured and analytical without sounding argumentative.
+- Author C may *tend* to soften statements by embedded conditions. The writing feels confident while quietly acknowledging uncertainty.
+- Author D may *tend* to shorten sentences to medium length, with very little ornamentation. Complexity comes from sequencing rather than sentence structure. 
+- Author E may *tend* to refer back to concepts introduced earlier, creating subtle internal echoes throughout the text. Ideas appear interconnected even when discussing different subjects.
 
 However:
 - These tendencies are weak and overlap substantially.
@@ -24,7 +27,7 @@ Your task is to infer which author is generating the excerpts.
 
 After each excerpt, you MUST respond using exactly these four lines and nothing else:
 
-Current best guess: [Author A / Author B / Undecided]
+Current best guess: [Author A / Author B / Author C / Author D / Author E / Undecided]
 Confidence: [0-100]
 Reasoning: [brief explanation, including any relevant response to the conversational feedback]
 Action: [Request another excerpt / Commit now]
