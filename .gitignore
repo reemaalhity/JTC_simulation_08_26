@@ -1,9 +1,0 @@
-__pycache__/
-*.pyc
-test_run_naturalistic/
-runs_naturalistic_latest/
-figures/
-figures_naturalistic/
-.env
-.DS_Store
-
